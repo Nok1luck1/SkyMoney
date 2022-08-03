@@ -68,7 +68,7 @@ contract ExpressGameMain is ExpressGameBasic {
         locked = !locked;
     }
     
-    fallback() external {
+    fallback()external{
         if(msg.data.length == 0) {
             return registration(msg.sender, id1);
         }

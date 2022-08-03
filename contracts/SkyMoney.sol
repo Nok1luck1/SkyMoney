@@ -27,13 +27,11 @@ contract SkyMoney is Ownable,ReentrancyGuard{
     mapping(address => User) public users;
     mapping(uint => Level) public levels;
     uint public ReferallBonusPercent = 3;
-    uint public TotalUsers;
-    
-
+    uint public TotalUsers;  
     event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint Time);
     event LevelBought(uint LevelNumber,uint Time,address User);
     event ReferallGetBonus(address Referall, address User,uint Time,uint LevelNumber);
-
+    event EmergencyWithdraw(address User,uint Time,uint amount,uint LevelNumber);
 constructor(IERC20 token_,address owner_){
     Token = token_;
     transferOwnership(owner_);
@@ -57,7 +55,7 @@ function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _r
     emit CreatedNewLevel(_numberLvl, _priceStart, _refillCount, _refillPercent, block.timestamp);
     return _numberLvl;
 }
-//require referal is exist and buy some lvl
+//require refferal is exist and buy some lvl
 function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
     User storage user = users[msg.sender];
     Level storage lvl = levels[buyLvl];
@@ -79,14 +77,26 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
     TotalUsers++;
     emit LevelBought(buyLvl, block.timestamp, msg.sender);
 }
-function changeToken(IERC20 _token)public onlyOwner{
+function changeToken(IERC20 _token)private onlyOwner{
     Token = _token;
 }
-function _sendPaymentaAndPushInQueue(address[]storage array,address newUser,uint _lvl) internal {
-    Level storage lvl = levels[_lvl];
+function closeLevelAndSendReward(uint _level)public onlyOwner{
+    Level storage level = levels[_level];
+    address currentUserAddress;
+    address[]storage usersArray = level.currentLvlLine;
+    for (uint i = 0; i < usersArray.length; i++){
+        currentUserAddress = usersArray[i];
+        Token.transfer(currentUserAddress, level.priceToStart);
+        emit EmergencyWithdraw(currentUserAddress, block.timestamp, level.priceToStart, level.numberLvl);
+    }
+    delete level.currentLvlLine;
+
+}
+function _sendPaymentaAndPushInQueue(address[]storage array,address newUser,uint _lvle) internal {
+    Level storage lvl = levels[_lvle];
     address paymentToUser = array[0];
     User storage user = users[paymentToUser];
-    uint amountForlvl = (lvl.priceToStart / 100 )*lvl.refillPercent ;
+    uint amountForlvl = (lvl.priceToStart/100)*lvl.refillPercent ;
     user.earned = user.earned + amountForlvl;
     Token.transfer(paymentToUser, amountForlvl);
     array = _remove(array, 0);
@@ -95,7 +105,6 @@ function _sendPaymentaAndPushInQueue(address[]storage array,address newUser,uint
     lvl.currentLvlLine = array;
     emit ReferallGetBonus(user.referral, user.user, block.timestamp, lvl.numberLvl);
 }
-
 function _sendToRefferalPercent(address _user) internal {
     User storage user = users[_user];
     address reseiver = user.referral;
@@ -112,10 +121,8 @@ function currentQueueInLevel(uint levelNumber)public view returns(address[] memo
     Level storage lvl = levels[levelNumber];
     return lvl.currentLvlLine;
 }
-
 function _remove(address[]storage arr,uint _index) internal returns(address[]storage) {
     require(_index < arr.length, "index out of bound");
-
     for (uint i = _index; i < arr.length - 1; i++) {
         arr[i] = arr[i + 1];
     }
@@ -129,6 +136,4 @@ function changeReferallPercent(uint percent)public onlyOwner returns(uint){
 function witdhraw(address token,uint amount) private onlyOwner{
     IERC20(token).transfer(address(msg.sender), amount);
 }
-
-
 }
