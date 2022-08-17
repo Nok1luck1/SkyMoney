@@ -3,7 +3,6 @@ pragma solidity 0.8.16;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-//import "@openzeppelin/contracts/utils/Address.sol";
 
 contract SkyMoney is Ownable,ReentrancyGuard{
 
@@ -22,6 +21,7 @@ contract SkyMoney is Ownable,ReentrancyGuard{
         uint priceToStart;
         uint refillCount;
         uint refillPercent;
+        uint MaxCountToBuyLevelSingleAddress;
         address[] currentLvlLine;
     }
     IERC20 public Token;
@@ -29,23 +29,26 @@ contract SkyMoney is Ownable,ReentrancyGuard{
     mapping(uint => Level) public levels;
     uint public ReferallBonusPercent = 3;
     uint public TotalBoughtLevels;  
-    uint MaxCountToBuyLevel = 2;
-    event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint Time);
+   
+
+
+    event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint MaxCountForSingleAddress,uint Time);
     event LevelBought(uint LevelNumber,uint Time,address User);
     event ReferallGetBonus(address Referall, address User,uint Time,uint LevelNumber);
     event EmergencyWithdraw(address User,uint Time,uint amount,uint LevelNumber);
+
 constructor(IERC20 token_,address owner_){
     Token = token_;
     transferOwnership(owner_);
-    createNewLvl(0, 40*(10**18), 3, 200);
-    createNewLvl(1, 90*(10**18), 4, 150);
-    createNewLvl(2, 170*(10**18),4, 175);
-    createNewLvl(3, 270*(10**18), 5, 200);
-    createNewLvl(4, 500*(10**18), 5, 225);
-    createNewLvl(5, 900*(10**18), 5, 250);
-    createNewLvl(6, 1500*(10**18), 5, 275);
-    createNewLvl(7, 2000*(10**18), 9, 300);
-    createNewLvl(8, 3000*(10**18), 10, 325);
+    createNewLvl(0, 40*(10**18), 3, 200,2);
+    createNewLvl(1, 90*(10**18), 4, 150,1);
+    createNewLvl(2, 170*(10**18),4, 175,1);
+    createNewLvl(3, 270*(10**18), 5, 200,1);
+    createNewLvl(4, 500*(10**18), 5, 225,1);
+    createNewLvl(5, 900*(10**18), 5, 250,1);
+    createNewLvl(6, 1500*(10**18), 5, 275,1);
+    createNewLvl(7, 2000*(10**18), 7, 300,1);
+    createNewLvl(8, 3000*(10**18), 8, 325,1);
 }
 fallback()external{
 
@@ -60,13 +63,14 @@ function currentQueueInLevel(uint levelNumber)public view returns(address[] memo
 }
 //set refill percent in actual percentage
 //refillcount set with active count of percent who will stand in queue for waiting last man
-function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent)public onlyOwner returns(uint){
+function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent,uint _maxCount)public onlyOwner returns(uint){
     Level storage lvl = levels[_numberLvl];
     lvl.numberLvl = _numberLvl;
     lvl.priceToStart = _priceStart;
     lvl.refillCount = _refillCount;
     lvl.refillPercent = _refillPercent;
-    emit CreatedNewLevel(_numberLvl, _priceStart, _refillCount, _refillPercent, block.timestamp);
+    lvl.MaxCountToBuyLevelSingleAddress = _maxCount;
+    emit CreatedNewLevel(_numberLvl, _priceStart, _refillCount, _refillPercent,_maxCount, block.timestamp);
     return _numberLvl;
 }
 //require refferal is exist and buy some lvl
@@ -83,7 +87,7 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
     user.countOfBuyingLevels++;
     user.countInLevel[buyLvl]++;
     //Cant buy one level more then twice
-    require(user.countInLevel[buyLvl]<= MaxCountToBuyLevel,"You cant buy more this level yet");
+    require(user.countInLevel[buyLvl]<= lvl.MaxCountToBuyLevelSingleAddress,"You cant buy more this level yet");
     address[] storage current = lvl.currentLvlLine;
     if (lvl.refillCount == current.length){
         _sendPaymentAndPushInQueue(lvl.currentLvlLine, msg.sender, buyLvl);
@@ -129,14 +133,24 @@ function _sendToRefferalPercent(address _user) internal {
     uint lvlCurrentUser = user.currentlvl;
     Level storage lvl = levels[lvlCurrentUser];
     uint amountBonus = (lvl.priceToStart / 100) * ReferallBonusPercent;
-   
     User storage refUser = users[user.referral];
     refUser.earned = refUser.earned + amountBonus;
     refUser.referals.push(_user);
     Token.transfer(reseiver, amountBonus);
     emit ReferallGetBonus(reseiver, _user, block.timestamp, lvlCurrentUser);
 }
-
+function changeReferallPercent(uint percent)private onlyOwner returns(uint){
+    ReferallBonusPercent = percent;
+    return percent;
+}
+function witdhraw(address token,uint amount) private onlyOwner{
+    IERC20(token).transfer(address(msg.sender), amount);
+}
+function changeMaxCountBuyLevel(uint _level,uint _count) private onlyOwner returns(uint){
+    Level storage lvl = levels[_level];
+    lvl.MaxCountToBuyLevelSingleAddress = _count;
+    return lvl.MaxCountToBuyLevelSingleAddress;
+}
 function _remove(address[]storage arr,uint _index) internal returns(address[]storage) {
     require(_index < arr.length, "index out of bound");
     for (uint i = _index; i < arr.length - 1; i++) {
@@ -145,17 +159,4 @@ function _remove(address[]storage arr,uint _index) internal returns(address[]sto
     arr.pop();
     return arr;
     }
-function changeReferallPercent(uint percent)private onlyOwner returns(uint){
-    ReferallBonusPercent = percent;
-    return percent;
-}
-
-function witdhraw(address token,uint amount) private onlyOwner{
-    IERC20(token).transfer(address(msg.sender), amount);
-}
-function changeMaxCountBuyLevel(uint _count) private onlyOwner returns(uint){
-    MaxCountToBuyLevel = _count;
-    return MaxCountToBuyLevel;
-}
-
 }

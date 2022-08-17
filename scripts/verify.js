@@ -1,18 +1,17 @@
 const hre = require('hardhat');
 const { ethers } = require(`hardhat`);
-
-const Token = '0xF28b5b9995C052a0e4EC1b848EafA6D3b29a7724'
-const SkyMoney = '0x16465a1a7e569a83d072243c203Fb2E96521Bb36'
+const Token = '0xb6579F126CbfbdBFbF0Df3029e2e4C8B7024063C'
+const SkyMoney = '0x46fD1e80452e077B1ed3b4123e08888F9751FDfb'
 
 async function main() {
-    console.log(`Verify SkyMoney contract`);
-    res = await hre.run("verify:verify", {
-        address: Token,
-        constructorArguments: []
-        ,
-        optimizationFlag: true
-    })
-    console.log(res);
+    // console.log(`Verify SkyMoney contract`);
+    // res = await hre.run("verify:verify", {
+    //     address: Token,
+    //     constructorArguments: []
+    //     ,
+    //     optimizationFlag: true
+    // })
+    // console.log(res);
 
 
     console.log(`Verify SkyMoney contract`);
