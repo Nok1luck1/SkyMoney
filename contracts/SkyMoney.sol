@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,6 +15,7 @@ contract SkyMoney is Ownable,ReentrancyGuard{
         uint earned;
         uint countOfBuyingLevels;
         address[] referals;
+        mapping (uint => uint) countInLevel;
     }
     struct Level{
         uint numberLvl;
@@ -27,7 +28,8 @@ contract SkyMoney is Ownable,ReentrancyGuard{
     mapping(address => User) public users;
     mapping(uint => Level) public levels;
     uint public ReferallBonusPercent = 3;
-    uint public TotalUsers;  
+    uint public TotalBoughtLevels;  
+    uint MaxCountToBuyLevel = 2;
     event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint Time);
     event LevelBought(uint LevelNumber,uint Time,address User);
     event ReferallGetBonus(address Referall, address User,uint Time,uint LevelNumber);
@@ -35,14 +37,26 @@ contract SkyMoney is Ownable,ReentrancyGuard{
 constructor(IERC20 token_,address owner_){
     Token = token_;
     transferOwnership(owner_);
-    createNewLvl(0, 30*(10**18), 5, 200);
-    createNewLvl(1, 70*(10**18), 4, 150);
-    createNewLvl(2, 130*(10**18),5, 175);
-    createNewLvl(3, 180*(10**18), 6, 200);
-    createNewLvl(4, 200*(10**18), 6, 225);
-    createNewLvl(5, 220*(10**18), 8, 250);
-    createNewLvl(6, 250*(10**18), 8, 275);
-    createNewLvl(7, 325*(10**18), 9, 300);
+    createNewLvl(0, 40*(10**18), 3, 200);
+    createNewLvl(1, 90*(10**18), 4, 150);
+    createNewLvl(2, 170*(10**18),4, 175);
+    createNewLvl(3, 270*(10**18), 5, 200);
+    createNewLvl(4, 500*(10**18), 5, 225);
+    createNewLvl(5, 900*(10**18), 5, 250);
+    createNewLvl(6, 1500*(10**18), 5, 275);
+    createNewLvl(7, 2000*(10**18), 9, 300);
+    createNewLvl(8, 3000*(10**18), 10, 325);
+}
+fallback()external{
+
+}
+receive() external payable {
+
+}
+
+function currentQueueInLevel(uint levelNumber)public view returns(address[] memory){
+    Level storage lvl = levels[levelNumber];
+    return lvl.currentLvlLine;
 }
 //set refill percent in actual percentage
 //refillcount set with active count of percent who will stand in queue for waiting last man
@@ -63,18 +77,21 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
     user.referral = _refferal;
     require(user.currentlvl+1 >= buyLvl,"You need to buy earlier level");
     Token.transferFrom(msg.sender, address(this), lvl.priceToStart);
-    user.currentlvl = buyLvl;
+    user.currentlvl = buyLvl;   
     user.deposited += lvl.priceToStart;
     user.user = msg.sender;
     user.countOfBuyingLevels++;
+    user.countInLevel[buyLvl]++;
+    //Cant buy one level more then twice
+    require(user.countInLevel[buyLvl]<= MaxCountToBuyLevel,"You cant buy more this level yet");
     address[] storage current = lvl.currentLvlLine;
     if (lvl.refillCount == current.length){
-        _sendPaymentaAndPushInQueue(lvl.currentLvlLine, msg.sender, buyLvl);
+        _sendPaymentAndPushInQueue(lvl.currentLvlLine, msg.sender, buyLvl);
     }
     else{
         lvl.currentLvlLine.push(msg.sender);
     }
-    TotalUsers++;
+    TotalBoughtLevels++;
     emit LevelBought(buyLvl, block.timestamp, msg.sender);
 }
 function changeToken(IERC20 _token)private onlyOwner{
@@ -92,7 +109,7 @@ function closeLevelAndSendReward(uint _level)public onlyOwner{
     delete level.currentLvlLine;
 
 }
-function _sendPaymentaAndPushInQueue(address[]storage array,address newUser,uint _lvle) internal {
+function _sendPaymentAndPushInQueue(address[]storage array,address newUser,uint _lvle) internal {
     Level storage lvl = levels[_lvle];
     address paymentToUser = array[0];
     User storage user = users[paymentToUser];
@@ -102,6 +119,7 @@ function _sendPaymentaAndPushInQueue(address[]storage array,address newUser,uint
     array = _remove(array, 0);
     array.push(newUser);
     _sendToRefferalPercent(paymentToUser);
+    user.countInLevel[_lvle]--;
     lvl.currentLvlLine = array;
     emit ReferallGetBonus(user.referral, user.user, block.timestamp, lvl.numberLvl);
 }
@@ -111,16 +129,14 @@ function _sendToRefferalPercent(address _user) internal {
     uint lvlCurrentUser = user.currentlvl;
     Level storage lvl = levels[lvlCurrentUser];
     uint amountBonus = (lvl.priceToStart / 100) * ReferallBonusPercent;
+   
     User storage refUser = users[user.referral];
     refUser.earned = refUser.earned + amountBonus;
     refUser.referals.push(_user);
     Token.transfer(reseiver, amountBonus);
     emit ReferallGetBonus(reseiver, _user, block.timestamp, lvlCurrentUser);
 }
-function currentQueueInLevel(uint levelNumber)public view returns(address[] memory){
-    Level storage lvl = levels[levelNumber];
-    return lvl.currentLvlLine;
-}
+
 function _remove(address[]storage arr,uint _index) internal returns(address[]storage) {
     require(_index < arr.length, "index out of bound");
     for (uint i = _index; i < arr.length - 1; i++) {
@@ -129,11 +145,17 @@ function _remove(address[]storage arr,uint _index) internal returns(address[]sto
     arr.pop();
     return arr;
     }
-function changeReferallPercent(uint percent)public onlyOwner returns(uint){
+function changeReferallPercent(uint percent)private onlyOwner returns(uint){
     ReferallBonusPercent = percent;
     return percent;
 }
+
 function witdhraw(address token,uint amount) private onlyOwner{
     IERC20(token).transfer(address(msg.sender), amount);
 }
+function changeMaxCountBuyLevel(uint _count) private onlyOwner returns(uint){
+    MaxCountToBuyLevel = _count;
+    return MaxCountToBuyLevel;
+}
+
 }

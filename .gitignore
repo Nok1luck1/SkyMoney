@@ -1,3 +1,5 @@
 node_modules
 .secret
+.env
+hardhat.config.js
 truffle-config.js
