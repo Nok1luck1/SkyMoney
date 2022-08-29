@@ -150,8 +150,8 @@
       ]
     },
     "C:\\Users\\kolam\\Desktop\\expressgame\\contracts\\SkyMoney.sol": {
-      "lastModificationDate": 1661762677869,
-      "contentHash": "5fda53f78cdc4ed09b729c82c9da83fe",
+      "lastModificationDate": 1661784242624,
+      "contentHash": "fdcafa562c140060adc4046f63c77437",
       "sourceName": "contracts/SkyMoney.sol",
       "solcConfig": {
         "version": "0.8.16",

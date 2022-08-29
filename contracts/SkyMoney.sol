@@ -55,6 +55,14 @@ fallback()external{
 receive() external payable {
 
 }
+function getLevel(uint _level)public view returns(uint,uint,uint,uint,address[] memory){
+    Level storage lvl = levels[_level];
+    return (lvl.priceToStart,lvl.refillCount,lvl.refillPercent,lvl.MaxCountToBuyLevelSingleAddress,lvl.currentLvlLine);
+}
+function getLevel(address _user)public view returns(address,uint,uint,uint,uint,address[] memory){
+    User storage user = users[_user];
+    return(user.referral,user.currentlvl,user.deposited,user.earned,user.countOfBuyingLevels,user.referals);
+}
 function pause()private whenNotPaused onlyOwner{
     _pause();
 }
