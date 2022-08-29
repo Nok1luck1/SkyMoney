@@ -3,8 +3,9 @@ pragma solidity 0.8.16;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract SkyMoney is Ownable,ReentrancyGuard{
+contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
 
     struct User{
         address user;
@@ -27,11 +28,9 @@ contract SkyMoney is Ownable,ReentrancyGuard{
     IERC20 public Token;
     mapping(address => User) public users;
     mapping(uint => Level) public levels;
-    uint public ReferallBonusPercent = 3;
+    uint public ReferallBonusPercent = 10;
     uint public TotalBoughtLevels;  
    
-
-
     event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint MaxCountForSingleAddress,uint Time);
     event LevelBought(uint LevelNumber,uint Time,address User);
     event ReferallGetBonus(address Referall, address User,uint Time,uint LevelNumber);
@@ -56,6 +55,12 @@ fallback()external{
 receive() external payable {
 
 }
+function pause()private whenNotPaused onlyOwner{
+    _pause();
+}
+function unpause()private whenPaused onlyOwner{
+    _unpause();
+}
 
 function currentQueueInLevel(uint levelNumber)public view returns(address[] memory){
     Level storage lvl = levels[levelNumber];
@@ -63,7 +68,7 @@ function currentQueueInLevel(uint levelNumber)public view returns(address[] memo
 }
 //set refill percent in actual percentage
 //refillcount set with active count of percent who will stand in queue for waiting last man
-function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent,uint _maxCount)public onlyOwner returns(uint){
+function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent,uint _maxCount)public onlyOwner whenPaused returns(uint){
     Level storage lvl = levels[_numberLvl];
     lvl.numberLvl = _numberLvl;
     lvl.priceToStart = _priceStart;
@@ -74,7 +79,7 @@ function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _r
     return _numberLvl;
 }
 //require refferal is exist and buy some lvl
-function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
+function buyLevel(uint buyLvl,address _refferal)public nonReentrant whenNotPaused {
     User storage user = users[msg.sender];
     Level storage lvl = levels[buyLvl];
     require(_refferal != 0x0000000000000000000000000000000000000000,"if you dont have refferal address use address owner");
@@ -98,10 +103,11 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant {
     TotalBoughtLevels++;
     emit LevelBought(buyLvl, block.timestamp, msg.sender);
 }
-function changeToken(IERC20 _token)private onlyOwner{
+
+function changeToken(IERC20 _token)public onlyOwner whenPaused{
     Token = _token;
 }
-function closeLevelAndSendReward(uint _level)public onlyOwner{
+function closeLevelAndSendReward(uint _level)public onlyOwner whenPaused{
     Level storage level = levels[_level];
     address currentUserAddress;
     address[]storage usersArray = level.currentLvlLine;
@@ -139,14 +145,14 @@ function _sendToRefferalPercent(address _user) internal {
     Token.transfer(reseiver, amountBonus);
     emit ReferallGetBonus(reseiver, _user, block.timestamp, lvlCurrentUser);
 }
-function changeReferallPercent(uint percent)private onlyOwner returns(uint){
+function changeReferallPercent(uint percent)public onlyOwner whenPaused returns(uint){
     ReferallBonusPercent = percent;
     return percent;
 }
-function witdhraw(address token,uint amount) private onlyOwner{
+function witdhraw(address token,uint amount) public onlyOwner{
     IERC20(token).transfer(address(msg.sender), amount);
 }
-function changeMaxCountBuyLevel(uint _level,uint _count) private onlyOwner returns(uint){
+function changeMaxCountBuyLevel(uint _level,uint _count) public onlyOwner whenPaused returns(uint){
     Level storage lvl = levels[_level];
     lvl.MaxCountToBuyLevelSingleAddress = _count;
     return lvl.MaxCountToBuyLevelSingleAddress;

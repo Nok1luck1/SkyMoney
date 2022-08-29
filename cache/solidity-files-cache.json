@@ -150,8 +150,8 @@
       ]
     },
     "C:\\Users\\kolam\\Desktop\\expressgame\\contracts\\SkyMoney.sol": {
-      "lastModificationDate": 1660741674778,
-      "contentHash": "2fb5d91ee847a8218160979a8a0cc4a0",
+      "lastModificationDate": 1661762677869,
+      "contentHash": "5fda53f78cdc4ed09b729c82c9da83fe",
       "sourceName": "contracts/SkyMoney.sol",
       "solcConfig": {
         "version": "0.8.16",
@@ -180,7 +180,8 @@
       "imports": [
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
         "@openzeppelin/contracts/security/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/security/Pausable.sol"
       ],
       "versionPragmas": [
         "0.8.16"
@@ -414,6 +415,44 @@
       ],
       "artifacts": [
         "IERC20Metadata"
+      ]
+    },
+    "C:\\Users\\kolam\\Desktop\\expressgame\\node_modules\\@openzeppelin\\contracts\\security\\Pausable.sol": {
+      "lastModificationDate": 1659083529275,
+      "contentHash": "25c8108f36fdd472bc78d4c4af240c11",
+      "sourceName": "@openzeppelin/contracts/security/Pausable.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 9999
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Pausable"
       ]
     }
   }
