@@ -1,7 +1,7 @@
 const hre = require('hardhat');
 const { ethers } = require(`hardhat`);
-const Token = '0xb6579F126CbfbdBFbF0Df3029e2e4C8B7024063C'
-const SkyMoney = '0x46fD1e80452e077B1ed3b4123e08888F9751FDfb'
+const Token = '0x11464Dc907cA7c48FBE09b08dd4C969e349363D3'
+const SkyMoney = '0x9Cb552291205B5A54E1cCc178354C91b77db25D4'
 
 async function main() {
     // console.log(`Verify SkyMoney contract`);

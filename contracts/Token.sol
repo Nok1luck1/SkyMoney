@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Token is ERC20("PutinPidor","PUP"),Ownable{
+contract Token is ERC20("USDT","USD"),Ownable{
     constructor(){
         _mint(msg.sender,10000000*(10**18));
     }

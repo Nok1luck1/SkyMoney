@@ -23,6 +23,7 @@ contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
         uint refillCount;
         uint refillPercent;
         uint MaxCountToBuyLevelSingleAddress;
+        uint currentSizeArray;
         address[] currentLvlLine;
     }
     IERC20 public Token;
@@ -30,6 +31,7 @@ contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
     mapping(uint => Level) public levels;
     uint public ReferallBonusPercent = 10;
     uint public TotalBoughtLevels;  
+    uint public TotalDepositToken;
    
     event CreatedNewLevel(uint LevelNumber,uint PriseToStart,uint RefillCount,uint RefillPercent,uint MaxCountForSingleAddress,uint Time);
     event LevelBought(uint LevelNumber,uint Time,address User);
@@ -39,6 +41,7 @@ contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
 constructor(IERC20 token_,address owner_){
     Token = token_;
     transferOwnership(owner_);
+    pause();
     createNewLvl(0, 40*(10**18), 3, 200,2);
     createNewLvl(1, 90*(10**18), 4, 150,1);
     createNewLvl(2, 170*(10**18),4, 175,1);
@@ -48,21 +51,22 @@ constructor(IERC20 token_,address owner_){
     createNewLvl(6, 1500*(10**18), 5, 275,1);
     createNewLvl(7, 2000*(10**18), 7, 300,1);
     createNewLvl(8, 3000*(10**18), 8, 325,1);
+    unpause();
 }
-fallback()external{
-
+fallback()external payable{
 }
 receive() external payable {
-
 }
+
 function getLevel(uint _level)public view returns(uint,uint,uint,uint,address[] memory){
     Level storage lvl = levels[_level];
     return (lvl.priceToStart,lvl.refillCount,lvl.refillPercent,lvl.MaxCountToBuyLevelSingleAddress,lvl.currentLvlLine);
 }
-function getLevel(address _user)public view returns(address,uint,uint,uint,uint,address[] memory){
+function getUser(address _user)public view returns(address,uint,uint,uint,uint,address[] memory){
     User storage user = users[_user];
     return(user.referral,user.currentlvl,user.deposited,user.earned,user.countOfBuyingLevels,user.referals);
 }
+
 function pause()private whenNotPaused onlyOwner{
     _pause();
 }
@@ -81,6 +85,7 @@ function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _r
     lvl.numberLvl = _numberLvl;
     lvl.priceToStart = _priceStart;
     lvl.refillCount = _refillCount;
+    lvl.currentSizeArray = _refillCount;
     lvl.refillPercent = _refillPercent;
     lvl.MaxCountToBuyLevelSingleAddress = _maxCount;
     emit CreatedNewLevel(_numberLvl, _priceStart, _refillCount, _refillPercent,_maxCount, block.timestamp);
@@ -99,11 +104,13 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant whenNotPause
     user.user = msg.sender;
     user.countOfBuyingLevels++;
     user.countInLevel[buyLvl]++;
+    TotalDepositToken = TotalDepositToken + lvl.priceToStart;
     //Cant buy one level more then twice
     require(user.countInLevel[buyLvl]<= lvl.MaxCountToBuyLevelSingleAddress,"You cant buy more this level yet");
     address[] storage current = lvl.currentLvlLine;
-    if (lvl.refillCount == current.length){
+    if (lvl.currentSizeArray == current.length){
         _sendPaymentAndPushInQueue(lvl.currentLvlLine, msg.sender, buyLvl);
+        lvl.currentSizeArray = lvl.currentSizeArray + lvl.refillCount;
     }
     else{
         lvl.currentLvlLine.push(msg.sender);
@@ -115,6 +122,7 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant whenNotPause
 function changeToken(IERC20 _token)public onlyOwner whenPaused{
     Token = _token;
 }
+/////////////////////////////////////////////////////////////////////////
 function closeLevelAndSendReward(uint _level)public onlyOwner whenPaused{
     Level storage level = levels[_level];
     address currentUserAddress;
@@ -127,6 +135,7 @@ function closeLevelAndSendReward(uint _level)public onlyOwner whenPaused{
     delete level.currentLvlLine;
 
 }
+///////////////////////////////////////////////////////////////////////
 function _sendPaymentAndPushInQueue(address[]storage array,address newUser,uint _lvle) internal {
     Level storage lvl = levels[_lvle];
     address paymentToUser = array[0];
@@ -141,6 +150,7 @@ function _sendPaymentAndPushInQueue(address[]storage array,address newUser,uint 
     lvl.currentLvlLine = array;
     emit ReferallGetBonus(user.referral, user.user, block.timestamp, lvl.numberLvl);
 }
+/////////////////////////////////////////////////////
 function _sendToRefferalPercent(address _user) internal {
     User storage user = users[_user];
     address reseiver = user.referral;
