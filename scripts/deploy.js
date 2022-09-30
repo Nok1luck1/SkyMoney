@@ -9,13 +9,18 @@ const main = async () => {
     const [deployer] = await ethers.getSigners()
     console.log(`Deployer address: ${deployer.address}`)
     //let nonce = await network.provider.send('eth_getTransactionCount', [deployer.address, 'latest']) - 1
-    const Token = await ethers.getContractFactory('Token')
-    const token = await Token.deploy()
-    await token.deployed();
-    console.log(`Token address : ${token.address}`)
+    // const Token = await ethers.getContractFactory('Token')
+    // const token = await Token.deploy()
+    // await token.deployed();
+
+    const initValue = [
+        "0x7077793b2af58e142F8df7951B5f201ed0ccC3F8",
+        "0x3f4F5d9971c265a7485540207023EA4B68Af6dc6",
+    ];
+    //console.log(`Token address : ${token.address}`)
+    //const controller = await upgrades.deployProxy(Controller, initValue, { });
     const SkyMoney = await ethers.getContractFactory('SkyMoney')
-    const skyMoney = await SkyMoney.deploy(token.address,Owner
-    )
+    const skyMoney = await upgrades.deployProxy(SkyMoney,initValue,{initializer: "initialize", kind: "uups"})
     await skyMoney.deployed();
 
     console.log(`SkyMoney deployed to: ${skyMoney.address}`)

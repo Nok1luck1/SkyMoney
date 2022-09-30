@@ -1,11 +1,14 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.16;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+pragma solidity 0.8.17;
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
+contract SkyMoney is Initializable,UUPSUpgradeable,AccessControlUpgradeable,ReentrancyGuardUpgradeable,PausableUpgradeable{
+    using SafeERC20Upgradeable for IERC20Upgradeable;
 
     struct User{
         address user;
@@ -26,10 +29,10 @@ contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
         uint currentSizeArray;
         address[] currentLvlLine;
     }
-    IERC20 public Token;
+    IERC20Upgradeable public Token;
     mapping(address => User) public users;
     mapping(uint => Level) public levels;
-    uint public ReferallBonusPercent = 10;
+    uint public ReferallBonusPercent;
     uint public TotalBoughtLevels;  
     uint public TotalDepositToken;
    
@@ -38,10 +41,15 @@ contract SkyMoney is Ownable,ReentrancyGuard,Pausable{
     event ReferallGetBonus(address Referall, address User,uint Time,uint LevelNumber);
     event EmergencyWithdraw(address User,uint Time,uint amount,uint LevelNumber);
 
-constructor(IERC20 token_,address owner_){
-    Token = token_;
-    transferOwnership(owner_);
-    pause();
+function initialize(IERC20Upgradeable token_,address owner_) public initializer{
+    _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _setupRole(DEFAULT_ADMIN_ROLE, owner_);
+    __Pausable_init();
+    __AccessControl_init();
+    __UUPSUpgradeable_init();
+    setPause(true);
+    changeReferallPercent(10);
+    changeToken(token_);
     createNewLvl(0, 40*(10**18), 3, 200,2);
     createNewLvl(1, 90*(10**18), 4, 150,1);
     createNewLvl(2, 170*(10**18),4, 175,1);
@@ -51,9 +59,9 @@ constructor(IERC20 token_,address owner_){
     createNewLvl(6, 1500*(10**18), 5, 275,1);
     createNewLvl(7, 2000*(10**18), 7, 300,1);
     createNewLvl(8, 3000*(10**18), 8, 325,1);
-    unpause();
+    setPause(false);
 }
-fallback()external payable{
+fallback()external payable {
 }
 receive() external payable {
 }
@@ -67,12 +75,9 @@ function getUser(address _user)public view returns(address,uint,uint,uint,uint,a
     return(user.referral,user.currentlvl,user.deposited,user.earned,user.countOfBuyingLevels,user.referals);
 }
 
-function pause()private whenNotPaused onlyOwner{
-    _pause();
-}
-function unpause()private whenPaused onlyOwner{
-    _unpause();
-}
+function setPause(bool _newPauseState)public onlyRole(DEFAULT_ADMIN_ROLE){
+        _newPauseState ? _pause() : _unpause();
+    }
 
 function currentQueueInLevel(uint levelNumber)public view returns(address[] memory){
     Level storage lvl = levels[levelNumber];
@@ -80,7 +85,7 @@ function currentQueueInLevel(uint levelNumber)public view returns(address[] memo
 }
 //set refill percent in actual percentage
 //refillcount set with active count of percent who will stand in queue for waiting last man
-function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent,uint _maxCount)public onlyOwner whenPaused returns(uint){
+function createNewLvl(uint _numberLvl,uint _priceStart,uint _refillCount,uint _refillPercent,uint _maxCount)public whenPaused onlyRole(DEFAULT_ADMIN_ROLE) returns(uint){
     Level storage lvl = levels[_numberLvl];
     lvl.numberLvl = _numberLvl;
     lvl.priceToStart = _priceStart;
@@ -119,11 +124,11 @@ function buyLevel(uint buyLvl,address _refferal)public nonReentrant whenNotPause
     emit LevelBought(buyLvl, block.timestamp, msg.sender);
 }
 
-function changeToken(IERC20 _token)public onlyOwner whenPaused{
+function changeToken(IERC20Upgradeable _token)public whenPaused onlyRole(DEFAULT_ADMIN_ROLE){
     Token = _token;
 }
 /////////////////////////////////////////////////////////////////////////
-function closeLevelAndSendReward(uint _level)public onlyOwner whenPaused{
+function closeLevelAndSendReward(uint _level)public whenPaused onlyRole(DEFAULT_ADMIN_ROLE){
     Level storage level = levels[_level];
     address currentUserAddress;
     address[]storage usersArray = level.currentLvlLine;
@@ -163,14 +168,14 @@ function _sendToRefferalPercent(address _user) internal {
     Token.transfer(reseiver, amountBonus);
     emit ReferallGetBonus(reseiver, _user, block.timestamp, lvlCurrentUser);
 }
-function changeReferallPercent(uint percent)public onlyOwner whenPaused returns(uint){
+function changeReferallPercent(uint percent)public whenPaused onlyRole(DEFAULT_ADMIN_ROLE) returns(uint){
     ReferallBonusPercent = percent;
     return percent;
 }
-function witdhraw(address token,uint amount) public onlyOwner{
-    IERC20(token).transfer(address(msg.sender), amount);
+function witdhraw(address token,uint amount) public onlyRole(DEFAULT_ADMIN_ROLE){
+    IERC20Upgradeable(token).transfer(address(msg.sender), amount);
 }
-function changeMaxCountBuyLevel(uint _level,uint _count) public onlyOwner whenPaused returns(uint){
+function changeMaxCountBuyLevel(uint _level,uint _count) public whenPaused onlyRole(DEFAULT_ADMIN_ROLE) returns(uint){
     Level storage lvl = levels[_level];
     lvl.MaxCountToBuyLevelSingleAddress = _count;
     return lvl.MaxCountToBuyLevelSingleAddress;
@@ -183,4 +188,7 @@ function _remove(address[]storage arr,uint _index) internal returns(address[]sto
     arr.pop();
     return arr;
     }
+function _authorizeUpgrade(address newImplementation)internal override onlyRole(DEFAULT_ADMIN_ROLE){
+
+}
 }
